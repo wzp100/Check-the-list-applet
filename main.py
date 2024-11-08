@@ -1,12 +1,11 @@
 import sys
 import csv
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView,
-    QMenuBar, QAction, QFileDialog, QLabel, QCheckBox as QOptionCheckBox, QHBoxLayout
+    QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QAction, QFileDialog, QLabel, QCheckBox as QOptionCheckBox, QHBoxLayout, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QKeyEvent
-from pypinyin import pinyin, Style, lazy_pinyin
+from pypinyin import pinyin, Style
 from collections import defaultdict
 
 class AttendanceApp(QMainWindow):
@@ -36,6 +35,12 @@ class AttendanceApp(QMainWindow):
         export_action = QAction('导出考勤情况', self)
         export_action.triggered.connect(self.export_attendance)
         file_menu.addAction(export_action)
+
+        # 帮助菜单
+        help_menu = menubar.addMenu('帮助')
+        help_action = QAction('关于', self)
+        help_action.triggered.connect(self.show_help)
+        help_menu.addAction(help_action)
 
         # 中央小部件
         central_widget = QWidget()
@@ -113,6 +118,20 @@ class AttendanceApp(QMainWindow):
                 print(f"考勤情况已导出至 {file_path}")
             except Exception as e:
                 print(f"写入文件出错: {e}")
+
+    def show_help(self):
+        help_text = (
+            "考勤系统 v1.0\n\n"
+            "使用方法:\n"
+            "1. 通过'文件'菜单导入名单(CSV文件格式)。\n"
+            "2. 使用输入框输入拼音首字母进行搜索，支持多音字。\n"
+            "3. 勾选'显示已标记的人员'可以查看所有人员，包括已标记的。\n"
+            "4. 可以通过'导出考勤情况'按钮将考勤记录保存为CSV文件。\n\n"
+            "快捷键使用方法:\n"
+            "- 在搜索框中按下回车键可以切换唯一匹配人员的出勤状态。\n"
+            "- 按数字键1-9可以快速切换对应位置人员的出勤状态。\n"
+        )
+        QMessageBox.information(self, "帮助", help_text)
 
     def _generate_initials_map(self, names):
         initials_map = defaultdict(set)  # 使用 set 自动去重
