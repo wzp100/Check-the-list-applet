@@ -6,13 +6,14 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QKeyEvent
-from pypinyin import pinyin, Style
+from pypinyin import pinyin, Style, lazy_pinyin
+from collections import defaultdict
 
 class AttendanceApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.names = {}  # 存储姓名和考勤状态的字典
-        self.initials_map = {}
+        self.initials_map = defaultdict(list)
         self.matched_names = []  # 存储当前可见的匹配姓名列表
         self.show_marked = True  # 是否显示已标记的人员
 
@@ -114,12 +115,27 @@ class AttendanceApp(QMainWindow):
                 print(f"写入文件出错: {e}")
 
     def _generate_initials_map(self, names):
-        initials_map = {}
+        initials_map = defaultdict(set)  # 使用 set 自动去重
         for name in names:
-            # 通过获取每个字符拼音的首字母生成首字母组合
-            initials = ''.join([p[0][0] for p in pinyin(name, style=Style.FIRST_LETTER)])
-            initials_map[name] = initials
-        return initials_map
+            # 通过获取每个字符拼音的首字母生成首字母组合，包括多音字处理
+            initials_list = pinyin(name, style=Style.FIRST_LETTER, heteronym=True)  # heteronym=True 表示支持多音字
+            all_combinations = set()
+
+            # 使用递归生成所有组合
+            def generate_combinations(prefix, idx):
+                if idx == len(initials_list):
+                    all_combinations.add(prefix)
+                    return
+                for letter in initials_list[idx]:
+                    generate_combinations(prefix + letter[0], idx + 1)
+
+            generate_combinations("", 0)
+
+            for initials_key in all_combinations:
+                initials_map[initials_key].add(name)  # 使用 set 添加
+
+        # 转换为 list 便于后续使用
+        return {k: list(v) for k, v in initials_map.items()}
 
     def display_all_names(self):
         """
@@ -157,25 +173,37 @@ class AttendanceApp(QMainWindow):
             # 如果输入为空，显示所有姓名
             self.display_all_names()
         else:
-            # 根据拼音首字母过滤并显示匹配的姓名
+            # 根据拼音首字母组合过滤并显示匹配的姓名
             self.matched_names = []
             self.table.setRowCount(0)  # 清空表格
-            for name, initials_key in self.initials_map.items():
-                if initials_key.startswith(initials):
-                    if not self.show_marked and self.names[name]:
-                        continue  # 跳过已标记的人员
-                    self.matched_names.append(name)
-                    row_position = self.table.rowCount()
-                    self.table.insertRow(row_position)
+            seen_names = set()  # 记录已经显示的姓名，防止重复
+            for initials_key, names in self.initials_map.items():
+                if initials_key.startswith(initials):  # 修改为检查首字母组合是否以输入内容开头
+                    for name in names:
+                        if name in seen_names:
+                            continue  # 跳过已显示的姓名，防止重复
+                        if not self.show_marked and self.names[name]:
+                            continue  # 跳过已标记的人员
+                        self.matched_names.append(name)
+                        seen_names.add(name)  # 添加到已显示的姓名集合
+                        row_position = self.table.rowCount()
+                        self.table.insertRow(row_position)
 
-                    # 添加姓名
-                    self.table.setItem(row_position, 0, QTableWidgetItem(name))
+                        # 添加姓名并设置居中对齐
+                        item = QTableWidgetItem(name)
+                        item.setTextAlignment(Qt.AlignCenter)  # 设置居中对齐
+                        self.table.setItem(row_position, 0, item)
 
-                    # 添加复选框
-                    checkbox = QCheckBox()
-                    checkbox.setChecked(self.names[name])
-                    checkbox.stateChanged.connect(lambda state, n=name: self.mark_attendance(state, n))
-                    self.table.setCellWidget(row_position, 1, checkbox)
+                        # 添加复选框
+                        checkbox = QCheckBox()
+                        checkbox.setChecked(self.names[name])
+                        checkbox.stateChanged.connect(lambda state, n=name: self.mark_attendance(state, n))
+                        checkbox_widget = QWidget()
+                        checkbox_layout = QVBoxLayout(checkbox_widget)
+                        checkbox_layout.addWidget(checkbox)
+                        checkbox_layout.setAlignment(Qt.AlignCenter)
+                        checkbox_layout.setContentsMargins(0, 0, 0, 0)
+                        self.table.setCellWidget(row_position, 1, checkbox_widget)
         self.update_search_count()  # 更新搜索结果数量
 
     def on_show_marked_changed(self, state):
