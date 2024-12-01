@@ -3,12 +3,14 @@ import csv
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QAction, QFileDialog, QLabel, QCheckBox as QOptionCheckBox, QHBoxLayout, QMessageBox
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeyEvent
 from pypinyin import pinyin, Style
 from collections import defaultdict
 
 class AttendanceApp(QMainWindow):
+    update_signal = pyqtSignal(str)  # 定义信号
+
     def __init__(self):
         super().__init__()
         self.names = {}  # 存储姓名和考勤状态的字典
@@ -16,9 +18,9 @@ class AttendanceApp(QMainWindow):
         self.matched_names = []  # 存储当前可见的匹配姓名列表
         self.show_marked = True  # 是否显示已标记的人员
 
-        self.initUI()
+        self.init_ui()
 
-    def initUI(self):
+    def init_ui(self):
         self.setWindowTitle('考勤系统')
         self.setGeometry(100, 100, 800, 600)
 
